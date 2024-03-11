@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simulation Results</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1c1c1c;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .column {
+            flex: 1;
+            margin-right: 20px;
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        .column:last-child {
+            margin-right: 0;
+        }
+        
+        h1, h2, h3 {
+            color: #f0f0f0;
+            margin-top: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid #444;
+        }
+        
+        th {
+            background-color: #333;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #2d2d2d;
+        }
+        
+        tr:hover {
+            background-color: #444;
+        }
+        
+        form {
+            margin-bottom: 20px;
+        }
+        
+        input[type="text"],
+        input[type="number"] {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            margin-right: 10px;
+        }
+        
+        input[type="text"] {
+            width: 120px;
+        }
+        
+        input[type="number"] {
+            width: 60px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: none;
+            background-color: #4caf50;
+            color: #f0f0f0;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        a {
+            color: #4caf50;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .row {
+                flex-direction: column;
+            }
+            
+            .column {
+                margin-right: 0;
+                margin-bottom: 20px;
+            }
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .button-group button:last-child {
+            margin-right: 0;
+        }
+
+        .simulation-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 4px;
+        }
+
+        .simulation-info p {
+            margin: 5px 0;
+        }
+
+        .simulation-info span {
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        function updateSimulationsCompleted() {
+            $.get('/simulations-completed?session_id={{ session.session_id }}', function(data) {
+                $('#simulations-completed').text(data.simulations_completed);
+                if (data.simulation_results.team_positions) {
+                    updateTeamPositionsTable(data.simulation_results.team_positions);
+                } else {
+                    resetTeamPositionsTable();
+                }
+                if (data.simulations_completed === {{ simulation_results.team_positions|length|default(0) }}) {
+                    clearInterval(intervalId);
+                }
+            });
+        }
+        
+        function updateTeamPositionsTable(teamPositions) {
+            var tableBody = $('#team-positions-table tbody');
+            tableBody.empty();
+
+            var teamPositionsArray = Object.entries(teamPositions);
+
+            teamPositionsArray.sort(function(a, b) {
+                return b[1]['qualified'] - a[1]['qualified'];
+            });
+
+            for (var i = 0; i < teamPositionsArray.length; i++) {
+                var team = teamPositionsArray[i][0];
+                var positions = teamPositionsArray[i][1];
+                var row = '<tr>' +
+                    '<td>' + team + '</td>' +
+                    '<td>' + positions['3-0'] + '%</td>' +
+                    '<td>' + positions['3-1'] + '%</td>' +
+                    '<td>' + positions['3-2'] + '%</td>' +
+                    '<td>' + positions['2-3'] + '%</td>' +
+                    '<td>' + positions['1-3'] + '%</td>' +
+                    '<td>' + positions['0-3'] + '%</td>' +
+                    '<td>' + positions['qualified'] + '%</td>' +
+                    '<td>' + positions['eliminated'] + '%</td>' +
+                    '</tr>';
+                tableBody.append(row);
+            }
+        }
+
+        function resetTeamPositionsTable() {
+            var tableBody = $('#team-positions-table tbody');
+            tableBody.empty();
+
+            {% for team in teams %}
+            var row = '<tr>' +
+                '<td>{{ team.name }}</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '<td>-</td>' +
+                '</tr>';
+            tableBody.append(row);
+            {% endfor %}
+        }
+
+        $(document).ready(function() {
+            resetTeamPositionsTable();
+            intervalId = setInterval(updateSimulationsCompleted, 1000);
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="column">
+                <h1>Customize Teams</h1>
+                <form action="/update-teams" method="post">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th colspan="7">Round 1 Matchups</th>
+                            </tr>
+                            <tr>
+                                <th>Seed</th>
+                                <th>Team</th>
+                                <th>Elo Rating</th>
+                                <th></th>
+                                <th>Seed</th>
+                                <th>Team</th>
+                                <th>Elo Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in range(8) %}
+                            <tr>
+                                <td>{{ i + 1 }}</td>
+                                <td><input type="text" name="team_name_{{ i }}" value="{{ teams[i].name }}"></td>
+                                <td><input type="number" name="team_elo_{{ i }}" value="{{ teams[i].elo }}"></td>
+                                <td style="width: 40px; text-align: center;">vs</td>
+                                <td>{{ i + 9 }}</td>
+                                <td><input type="text" name="team_name_{{ i+8 }}" value="{{ teams[i+8].name }}"></td>
+                                <td><input type="number" name="team_elo_{{ i+8 }}" value="{{ teams[i+8].elo }}"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <input type="hidden" name="session_id" value="{{ session.session_id }}">
+                    <div class="button-group">
+                        <button type="submit">Update Teams</button>
+                        <button type="submit" formaction="/reset-teams">Reset to Default</button>
+                    </div>
+                </form>
+                <div class="simulation-info">
+                    <h3>Simulation Settings</h3>
+                    <form action="/simulate" method="post">
+                        <label for="num_simulations">Number of Simulations:</label>
+                        <input type="number" id="num_simulations" name="num_simulations" min="1" required>
+                        <button type="submit">Run Simulations</button>
+                    </form>
+                    <p><span>Max simulations:</span> 100,000</p>
+                    <p><span>Simulations Completed:</span> <span id="simulations-completed">{{ simulations_completed }}</span></p>
+                </div>
+            </div>
+            <div class="column">
+                <h1>How It Works</h1>
+                <div>
+                    <p>The simulation uses the Elo rating system to estimate the probability of each team winning a match. It runs multiple iterations, updating the teams' records and Elo ratings after each simulated match. The results show the percentage likelihood of each team's final record and qualification status.</p>
+
+                    <h3>Methodology</h3>
+                    <ul>
+                        <li>Elo ratings are used to calculate win probabilities for each match.</li>
+                        <li>The simulation runs the specified number of iterations.</li>
+                        <li>Each iteration simulates the group stage matches and updates team records and Elo ratings.</li>
+                        <li>The results are aggregated to determine the likelihood of each possible outcome for each team.</li>
+                    </ul>
+
+                    <h3>Interpreting the Results</h3>
+                    <ul>
+                        <li>The "3-0" to "0-3" columns show the percentage of simulations where each team achieved that record.</li>
+                        <li>"Qualified %" indicates the likelihood of a team advancing to the playoffs.</li>
+                        <li>"Eliminated %" shows the probability of a team being knocked out in the group stage.</li>
+                    </ul>
+
+                    <p>Keep in mind that these simulations are based on statistical probabilities and do not account for all factors that can influence match outcomes.</p>
+                    
+                    <h3>Useful Links
+                        <ul>
+                        <li>Valve's <a href="https://github.com/ValveSoftware/counter-strike/tree/main/regional_standings" target="_blank">Regional Standings</a></li>
+                        <li>Tennis Players <a href="https://tennisabstract.com/reports/atp_elo_ratings.html" target="_blank">Elo</a> Ratings</li>
+                        <li><a href="https://majors.im" target="_blank">Manual Simulator</a> by ieb</li>
+                    </ul>
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="column" style="margin-right: 0;">
+                <h2>Simulation Results</h2>
+                <table id="team-positions-table">
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>3-0</th>
+                            <th>3-1</th>
+                            <th>3-2</th>
+                            <th>2-3</th>
+                            <th>1-3</th>
+                            <th>0-3</th>
+                            <th>Qualified %</th>
+                            <th>Eliminated %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in teams %}
+                        <tr>
+                            <td>{{ team.name }}</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <br>
+                <h3>Made by: <a href="https://steamcommunity.com/id/lembaOCE" target="_blank">lemba</a></h3>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
